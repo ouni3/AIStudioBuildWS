@@ -1,0 +1,10 @@
+services:
+  aistudio-websocket-app:
+    networks:
+      - my-shared-bridge
+    command: >
+      sh -c "socat TCP-LISTEN:8317,fork,reuseaddr TCP:cli-proxy-api:8317 & python main.py"
+
+networks:
+  my-shared-bridge:
+    external: true

@@ -22,7 +22,7 @@ cookies/
 *.njsproj
 *.sln
 *.sw?
-
+.kilocode
 # OS-generated files
 .DS_Store
 Thumbs.db
