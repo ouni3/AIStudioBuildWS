@@ -1,6 +1,6 @@
 import time
 import os
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, expect, TimeoutError
 from utils.paths import logs_dir
 from utils.common import ensure_dir
 
@@ -44,6 +44,7 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
 
     # 添加Cookie验证计数器
     click_counter = 0
+    consecutive_errors = 0  # 连续错误计数器
 
     while True:
         # 检查是否收到关闭信号
@@ -52,8 +53,10 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
             break
 
         try:
-            page.click('body')
+            # 使用较短的超时时间进行保活点击，避免长时间阻塞
+            page.click('body', timeout=10000)
             click_counter += 1
+            consecutive_errors = 0  # 重置连续错误计数
 
             # 每360次点击（1小时）执行一次完整的Cookie验证
             if cookie_validator and click_counter >= 360:  # 360 * 10秒 = 3600秒 = 1小时
@@ -72,8 +75,23 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
                     return
                 time.sleep(1)
 
+        except TimeoutError:
+            consecutive_errors += 1
+            logger.warning(f"保活点击超时 (连续次数: {consecutive_errors})，忽略此错误继续运行...")
+            if consecutive_errors >= 20:
+                logger.error("连续超时次数过多(>=20)，判定为实例异常，退出循环")
+                break
+
         except Exception as e:
-            logger.error(f"在保持活动循环中出错: {e}")
+            consecutive_errors += 1
+            logger.error(f"在保持活动循环中出错: {e} (连续错误: {consecutive_errors})")
+
+            # 检查是否是致命错误（页面关闭）
+            error_str = str(e)
+            if "Target closed" in error_str or "Session closed" in error_str:
+                logger.error("检测到页面或会话已关闭，退出循环")
+                break
+
             # 在保持活动循环中出错时截屏
             try:
                 screenshot_dir = logs_dir()
@@ -83,4 +101,10 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
                 logger.info(f"已在保持活动循环出错时截屏: {screenshot_filename}")
             except Exception as screenshot_e:
                 logger.error(f"在保持活动循环出错时截屏失败: {screenshot_e}")
-            break # 如果页面关闭或出错，则退出循环
+            
+            if consecutive_errors >= 5:
+                logger.error("连续非超时错误次数过多(>=5)，退出循环")
+                break
+            
+            logger.info("尝试从错误中恢复，继续运行...")
+            time.sleep(5)  # 出错后等待一小段时间
