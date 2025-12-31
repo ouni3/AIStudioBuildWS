@@ -29,3 +29,8 @@ def logs_dir() -> Path:
 def cookies_dir() -> Path:
     """存储持久化Cookie JSON文件的根级目录。"""
     return project_root() / "cookies"
+
+
+def ws_log_flag_path() -> Path:
+    """WebSocket日志记录开启标志文件的路径"""
+    return logs_dir() / "ws_logging_enabled.flag"

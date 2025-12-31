@@ -5,6 +5,7 @@ from utils.logger import setup_logging
 from utils.cookie_manager import CookieManager
 from browser.navigation import handle_successful_navigation
 from browser.cookie_validator import CookieValidator
+from browser.ws_logger import WebSocketLogger
 from camoufox.sync_api import Camoufox
 from utils.paths import logs_dir
 from utils.common import parse_headless_mode, ensure_dir
@@ -74,6 +75,10 @@ def run_browser_instance(config, shutdown_event=None):
             context = browser.new_context()
             context.add_cookies(cookies)
             page = context.new_page()
+
+            # 创建并附加 WebSocket 日志记录器
+            ws_logger = WebSocketLogger(logger, instance_label)
+            ws_logger.attach_to_page(page)
 
             # 创建Cookie验证器
             cookie_validator = CookieValidator(page, context, logger)

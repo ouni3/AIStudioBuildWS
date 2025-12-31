@@ -7,7 +7,7 @@ import time
 
 from browser.instance import run_browser_instance
 from utils.logger import setup_logging
-from utils.paths import cookies_dir, logs_dir
+from utils.paths import cookies_dir, logs_dir, ws_log_flag_path
 from utils.cookie_manager import CookieManager
 from utils.common import clean_env_value, ensure_dir
 
@@ -357,19 +357,124 @@ def run_server_mode():
             'message': f'Application is running with {running_count} active browser instances'
         })
 
+    @flask_app.route('/api/logs/ws/status')
+    def get_ws_log_status():
+        """获取 WebSocket 日志记录状态"""
+        enabled = ws_log_flag_path().exists()
+        return jsonify({'enabled': enabled})
+
+    @flask_app.route('/api/logs/ws/enable', methods=['POST'])
+    def enable_ws_logs():
+        """开启 WebSocket 日志记录"""
+        try:
+            flag_path = ws_log_flag_path()
+            ensure_dir(flag_path.parent)
+            flag_path.touch()
+            return jsonify({'status': 'success', 'enabled': True})
+        except Exception as e:
+            server_logger.error(f"无法创建标志文件: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    @flask_app.route('/api/logs/ws/disable', methods=['POST'])
+    def disable_ws_logs():
+        """关闭 WebSocket 日志记录"""
+        try:
+            flag_path = ws_log_flag_path()
+            if flag_path.exists():
+                flag_path.unlink()
+            return jsonify({'status': 'success', 'enabled': False})
+        except Exception as e:
+            server_logger.error(f"无法删除标志文件: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @flask_app.route('/')
     def index():
-        """主页端点"""
+        """管理控制台"""
         global process_manager
         running_count = process_manager.get_alive_count()
         total_count = process_manager.get_count()
-        return jsonify({
-            'status': 'running',
-            'browser_instances': total_count,
-            'running_instances': running_count,
-            'run_mode': 'server',
-            'message': 'Camoufox Browser Automation is running in server mode'
-        })
+        ws_log_enabled = ws_log_flag_path().exists()
+        
+        # 简单的内嵌 HTML 界面
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>AIStudioBuildWS 控制台</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f5f7; }}
+                .card {{ background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }}
+                h1 {{ margin-top: 0; color: #1d1d1f; }}
+                .status-item {{ display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }}
+                .status-item:last-child {{ border-bottom: none; }}
+                .label {{ color: #86868b; }}
+                .value {{ font-weight: 600; color: #1d1d1f; }}
+                .switch-container {{ display: flex; align-items: center; justify-content: space-between; margin-top: 20px; }}
+                .switch {{ position: relative; display: inline-block; width: 60px; height: 34px; }}
+                .switch input {{ opacity: 0; width: 0; height: 0; }}
+                .slider {{ position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }}
+                .slider:before {{ position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }}
+                input:checked + .slider {{ background-color: #0071e3; }}
+                input:checked + .slider:before {{ transform: translateX(26px); }}
+                button {{ background-color: #0071e3; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 10px; }}
+                button:hover {{ background-color: #0077ed; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>系统状态</h1>
+                <div class="status-item">
+                    <span class="label">运行模式</span>
+                    <span class="value">Server (HG=true)</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">总实例数</span>
+                    <span class="value">{total_count}</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">活跃实例数</span>
+                    <span class="value">{running_count}</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">健康状态</span>
+                    <span class="value" style="color: green">Healthy</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h1>调试控制</h1>
+                <div class="switch-container">
+                    <span>WebSocket 日志记录 (详细)</span>
+                    <label class="switch">
+                        <input type="checkbox" id="wsLogToggle" {'checked' if ws_log_enabled else ''} onchange="toggleWsLogs(this)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <p style="color: #86868b; font-size: 14px;">开启后，所有 WebSocket 通信的详细内容将被记录到 <code>logs/ws_messages/</code> 目录。</p>
+            </div>
+
+            <script>
+                function toggleWsLogs(checkbox) {{
+                    const action = checkbox.checked ? 'enable' : 'disable';
+                    fetch(`/api/logs/ws/${{action}}`, {{ method: 'POST' }})
+                        .then(response => response.json())
+                        .then(data => {{
+                            if (data.status !== 'success') {{
+                                alert('操作失败: ' + data.message);
+                                checkbox.checked = !checkbox.checked; // Revert
+                            }}
+                        }})
+                        .catch(err => {{
+                            alert('网络错误');
+                            checkbox.checked = !checkbox.checked;
+                        }});
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        return html
 
     # 禁用 Flask 的默认日志
     import logging
