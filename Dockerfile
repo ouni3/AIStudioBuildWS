@@ -6,7 +6,9 @@ WORKDIR /app
 
 # 安装运行 Playwright 所需的最小系统依赖集
 # 在同一层中清理 apt 缓存以减小镜像体积
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 使用清华源以提高国内构建速度
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     libatk1.0-0 libatk-bridge2.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 \
     libnspr4 libnss3 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxdamage1 \
     libxext6 libxfixes3 libxrandr2 libxrender1 libxtst6 ca-certificates \
@@ -15,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 拷贝并安装 Python 依赖
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 使用镜像源安装依赖
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 下载 camoufox
 RUN camoufox fetch

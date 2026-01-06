@@ -4,7 +4,7 @@ from playwright.sync_api import TimeoutError, Error as PlaywrightError
 from utils.logger import setup_logging
 from utils.cookie_manager import CookieManager
 from browser.navigation import handle_successful_navigation
-from browser.cookie_validator import CookieValidator
+# from browser.cookie_validator import CookieValidator
 from browser.ws_logger import WebSocketLogger
 from camoufox.sync_api import Camoufox
 from utils.paths import logs_dir
@@ -80,8 +80,9 @@ def run_browser_instance(config, shutdown_event=None):
             ws_logger = WebSocketLogger(logger, instance_label)
             ws_logger.attach_to_page(page)
 
-            # 创建Cookie验证器
-            cookie_validator = CookieValidator(page, context, logger)
+            # 创建Cookie验证器 (用户已禁用)
+            # cookie_validator = CookieValidator(page, context, logger)
+            cookie_validator = None
 
             # ####################################################################
             # ############ 增强的 page.goto() 错误处理和日志记录 ###############

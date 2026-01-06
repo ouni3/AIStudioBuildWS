@@ -34,10 +34,10 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
     # 检查并处理 "Last modified by..." 的弹窗
     handle_untrusted_dialog(page, logger=logger)
 
-    if cookie_validator:
-        logger.info("Cookie验证器已创建，将定期验证Cookie有效性")
+    # if cookie_validator:
+    #     logger.info("Cookie验证器已创建，将定期验证Cookie有效性")
 
-    logger.info("实例将保持运行状态。每10秒点击一次页面以保持活动")
+    logger.info("实例将保持运行状态。每10秒点击一次页面以保持活动 (已禁用自动Cookie验证)")
 
     # 等待页面加载和渲染
     time.sleep(15)
@@ -58,15 +58,15 @@ def handle_successful_navigation(page: Page, logger, cookie_file_config, shutdow
             click_counter += 1
             consecutive_errors = 0  # 重置连续错误计数
 
-            # 每360次点击（1小时）执行一次完整的Cookie验证
-            if cookie_validator and click_counter >= 360:  # 360 * 10秒 = 3600秒 = 1小时
-                is_valid = cookie_validator.validate_cookies_in_main_thread()
-
-                if not is_valid:
-                    cookie_validator.shutdown_instance_on_cookie_failure()
-                    return
-
-                click_counter = 0  # 重置计数器
+            # 每360次点击（1小时）执行一次完整的Cookie验证 - 用户要求禁用
+            # if cookie_validator and click_counter >= 360:  # 360 * 10秒 = 3600秒 = 1小时
+            #     is_valid = cookie_validator.validate_cookies_in_main_thread()
+            #
+            #     if not is_valid:
+            #         cookie_validator.shutdown_instance_on_cookie_failure()
+            #         return
+            #
+            #     click_counter = 0  # 重置计数器
 
             # 使用可中断的睡眠，每秒检查一次关闭信号
             for _ in range(10):  # 10秒 = 10次1秒检查
