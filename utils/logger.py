@@ -11,11 +11,15 @@ def setup_logging(log_file, prefix=None, level=logging.INFO):
     :param prefix: (可选) 要添加到每条日志消息开头的字符串前缀。
     :param level: 日志级别。
     """
-    logger = logging.getLogger('my_app_logger') 
+    # 使用前缀作为 logger 名称，确保每个实例有独立的 logger
+    logger_name = f'app_{prefix}' if prefix else 'app_root'
+    logger = logging.getLogger(logger_name) 
     logger.setLevel(level)
 
+    # 如果该 logger 已经有 handler，说明已经配置过，直接返回
+    # 这避免了重复添加 handler 导致的日志重复
     if logger.hasHandlers():
-        logger.handlers.clear()
+        return logger
 
     base_format = '%(asctime)s - %(process)d - %(levelname)s - %(message)s'
 

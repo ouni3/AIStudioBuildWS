@@ -1,0 +1,14 @@
+services:
+  aistudio-websocket-async:
+    image: aistudio-websocket:async
+    build:
+      context: .
+      dockerfile: Dockerfile.async
+    container_name: aistudio-websocket-async
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./cookies:/app/cookies:rw
+      - ./logs:/app/logs:rw
+    restart: on-failure

@@ -42,7 +42,23 @@ class BrowserManager:
         
         launch_options = {
             "headless": headless_mode,
-            "args": ["--disable-gpu"] # 禁用 GPU 以节省资源
+            "args": [
+                "--disable-dev-shm-usage",
+                "--no-sandbox"
+            ],
+            "firefox_user_prefs": {
+                # 关键修复：禁用后台标签页的定时器节流，防止 WebSocket 心跳断开
+                "dom.min_background_timeout_value": 4, 
+                "dom.timeout.enable_budget_timer_throttling": False,
+                # 增加 WebSocket 的超时容忍度
+                "network.websocket.timeout.ping.request": 20,
+                "network.websocket.timeout.ping.response": 20,
+                # 确保 HTTP2 WebSocket 启用
+                "network.http.http2.websockets": True,
+                # 允许 HTTPS 页面连接不安全的 WS (ws://127.0.0.1)
+                "security.mixed_content.block_active_content": False,
+                "security.mixed_content.block_display_content": False
+            }
         }
         
         # 全局代理设置
@@ -59,19 +75,20 @@ class BrowserManager:
 
                 self.tasks = []
                 for i, profile in enumerate(self.instance_profiles, 1):
-                    # 合并配置 (目前主要是 url 和 proxy，但 proxy 已在全局设置)
+                    # 合并配置
                     config = self.global_settings.copy()
                     config.update(profile)
                     
-                    # 为每个配置文件创建一个异步任务
-                    task = asyncio.create_task(self.run_context(config, i))
+                    # 错峰启动：每个上下文之间间隔 15 秒，避免单实例浏览器瞬间压力过大
+                    start_delay = (i - 1) * 15
+                    task = asyncio.create_task(self.delayed_run_context(config, i, start_delay))
                     self.tasks.append(task)
                 
                 if not self.tasks:
                     self.logger.warning("没有需要运行的任务")
                     return
 
-                self.logger.info(f"已启动 {len(self.tasks)} 个并发上下文任务")
+                self.logger.info(f"已提交 {len(self.tasks)} 个错峰并发上下文任务 (间隔 15s)")
 
                 # 主循环：监控 shutdown_event
                 while not self.shutdown_event.is_set():
@@ -99,6 +116,15 @@ class BrowserManager:
             self.logger.exception(f"BrowserManager 发生严重错误: {e}")
         finally:
             self.logger.info("BrowserManager 退出。")
+
+    async def delayed_run_context(self, config, index, delay):
+        """延迟运行上下文"""
+        if delay > 0:
+            cookie_source = config.get('cookie_source')
+            instance_label = cookie_source.display_name
+            logging.getLogger(instance_label).info(f"错峰启动：等待 {delay} 秒后开始初始化上下文...")
+            await asyncio.sleep(delay)
+        return await self.run_context(config, index)
 
     async def run_context(self, config, index):
         """运行单个浏览器上下文 (Tab/Session)"""
@@ -137,6 +163,9 @@ class BrowserManager:
                 await context.add_cookies(cookies)
                 page = await context.new_page()
                 
+                # 显式将页面带到前台，某些重负载应用在后台上下文可能会限流
+                await page.bring_to_front()
+                
                 # 挂载 WebSocket Logger
                 ws_logger = WebSocketLogger(logger, instance_label)
                 ws_logger.attach_to_page(page) # page.on 是同步注册，兼容
@@ -145,12 +174,16 @@ class BrowserManager:
                 logger.info(f"正在导航到: {mask_url_for_logging(expected_url)}")
                 
                 try:
-                    response = await page.goto(expected_url, wait_until='domcontentloaded', timeout=90000)
+                    # 增加导航超时时间到 120s
+                    response = await page.goto(expected_url, wait_until='domcontentloaded', timeout=120000)
                     
                     if response:
                          if not response.ok:
                              logger.warning(f"HTTP 状态码: {response.status}")
-                             await page.screenshot(path=os.path.join(screenshot_dir, f"WARN_status_{response.status}_{diagnostic_tag}.png"))
+                             # 截图增加超时限制，防止截图本身也挂起
+                             try:
+                                 await page.screenshot(path=os.path.join(screenshot_dir, f"WARN_status_{response.status}_{diagnostic_tag}.png"), timeout=10000)
+                             except: pass
                     
                     # 检查加载指示器
                     spinner_locator = page.locator('mat-spinner')
@@ -160,14 +193,18 @@ class BrowserManager:
                         logger.info("加载指示器已消失")
                     except TimeoutError:
                         logger.error("页面加载卡在 Spinner。")
-                        await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_spinner_{diagnostic_tag}.png"))
+                        try:
+                            await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_spinner_{diagnostic_tag}.png"), timeout=10000)
+                        except: pass
                         return
 
                     # 检查认证错误
                     auth_error_locator = page.get_by_text("authentication error", exact=False)
                     if await auth_error_locator.is_visible(timeout=2000):
                         logger.error("检测到认证错误横幅。Cookie 可能已过期。")
-                        await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_auth_{diagnostic_tag}.png"))
+                        try:
+                            await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_auth_{diagnostic_tag}.png"), timeout=10000)
+                        except: pass
                         return
                     
                     # 检查登录按钮 (Double check)
@@ -176,7 +213,9 @@ class BrowserManager:
                     
                     if await login_button_cn.is_visible(timeout=1000) or await login_button_en.is_visible(timeout=1000):
                          logger.error("页面显示登录按钮，Cookie 无效。")
-                         await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_login_btn_{diagnostic_tag}.png"))
+                         try:
+                             await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_login_btn_{diagnostic_tag}.png"), timeout=10000)
+                         except: pass
                          return
 
                     # 成功，进入保活循环
@@ -184,10 +223,14 @@ class BrowserManager:
 
                 except TimeoutError:
                     logger.error("导航超时。")
-                    await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.png"))
+                    try:
+                        await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_timeout_{diagnostic_tag}.png"), timeout=10000)
+                    except: pass
                 except Exception as e:
                     logger.error(f"导航过程中发生错误: {e}")
-                    await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_nav_error_{diagnostic_tag}.png"))
+                    try:
+                        await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_nav_error_{diagnostic_tag}.png"), timeout=10000)
+                    except: pass
 
             finally:
                 # 关闭上下文

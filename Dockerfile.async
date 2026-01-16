@@ -1,0 +1,6 @@
+FROM aistudio-websocket:latest
+WORKDIR /app
+# 拷贝最新的代码（包括异步重构的部分）
+COPY . .
+# 运行
+CMD ["python", "main.py"]

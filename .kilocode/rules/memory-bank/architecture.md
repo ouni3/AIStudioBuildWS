@@ -101,6 +101,11 @@ f:/AIStudioBuildWS/
 - **独立模式**：直接运行 `python main.py`，启动 asyncio loop。
 - **服务器模式**：`HG=true` 时启动 Flask，在后台守护线程中运行 asyncio loop。
 
+### 5. 浏览器环境模拟优化
+- **后台保活**: 注入 `dom.min_background_timeout_value=4` 等 prefs，防止非活跃 Tab 的定时器被节流。
+- **混合内容支持**: 显式关闭 `security.mixed_content.block_active_content` 以允许 HTTPS 页面连接 `ws://127.0.0.1:8317`。
+- **独立日志**: 每个 Context 拥有独立的 Logger 名称，确保并发多账号日志前缀不被覆盖。
+
 ## 组件关系
 
 ```mermaid
