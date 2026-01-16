@@ -7,37 +7,33 @@
 │                      AIStudioBuildWS                          │
 ├──────────────────────────────────────────────────────────────┤
 │  main.py                                                      │
-│  ├── ProcessManager (进程管理)                                │
-│  │   ├── 跟踪所有浏览器进程                                   │
-│  │   ├── 优雅终止进程                                         │
-│  │   └── 信号处理 (SIGTERM/SIGINT)                           │
-│  │                                                            │
-│  ├── start_browser_instances()                               │
-│  │   ├── 加载配置 (load_instance_configurations)             │
-│  │   └── 为每个 Cookie 启动独立进程                          │
-│  │                                                            │
+│  ├── Global Variables (shutdown_event, browser_manager)       │
 │  ├── run_standalone_mode() - CLI 独立模式                    │
-│  └── run_server_mode() - Flask 服务器模式 (HuggingFace)      │
+│  │   └── run_async_manager()                                 │
+│  ├── run_server_mode() - Flask 服务器模式                    │
+│  │   └── Thread(target=run_async_manager)                    │
+│  └── signal_handler()                                        │
 │                                                               │
 ├──────────────────────────────────────────────────────────────┤
 │  browser/                                                     │
-│  ├── instance.py                                              │
-│  │   └── run_browser_instance() - 单个浏览器实例生命周期     │
-│  │       ├── 加载 Cookie                                      │
-│  │       ├── 导航到目标 URL                                   │
-│  │       ├── 验证登录状态                                     │
-│  │       ├── 挂载 WebSocketLogger (可开关)                    │
-│  │       └── 进入保活循环                                     │
+│  ├── manager.py                                               │
+│  │   └── BrowserManager (单例)                               │
+│  │       ├── run() - 异步主循环                              │
+│  │       │   ├── 启动 AsyncCamoufox 实例                     │
+│  │       │   └── 为每个配置创建 Context Task                 │
+│  │       └── run_context() - 单个 Context 生命周期           │
+│  │           ├── 加载 Cookie                                 │
+│  │           ├── 创建 BrowserContext                         │
+│  │           ├── 导航到目标 URL                              │
+│  │           ├── 挂载 WebSocketLogger                        │
+│  │           └── 调用 async_navigation                       │
 │  │                                                            │
-│  ├── navigation.py                                            │
-│  │   ├── handle_untrusted_dialog() - 处理弹窗                │
-│  │   └── handle_successful_navigation() - 保活循环           │
+│  ├── async_navigation.py                                      │
+│  │   ├── handle_untrusted_dialog() - 异步处理弹窗            │
+│  │   └── handle_successful_navigation() - 异步保活循环       │
 │  │                                                            │
-│  ├── ws_logger.py                                             │
-│  │   └── WebSocketLogger - 记录 WebSocket 通信 (需开关开启)  │
-│  │                                                            │
-│  └── cookie_validator.py                                      │
-│      └── CookieValidator - 定期验证 Cookie 有效性            │
+│  └── ws_logger.py                                             │
+│      └── WebSocketLogger - 记录 WebSocket 通信               │
 │                                                               │
 ├──────────────────────────────────────────────────────────────┤
 │  utils/                                                       │
@@ -61,12 +57,11 @@
 
 ```
 f:/AIStudioBuildWS/
-├── main.py                    # 主入口，进程管理，Flask 服务器
+├── main.py                    # 主入口，Flask 服务器，异步循环启动器
 ├── browser/
-│   ├── instance.py            # 浏览器实例管理
-│   ├── navigation.py          # 页面导航和保活
-│   ├── ws_logger.py           # WebSocket 日志记录
-│   └── cookie_validator.py    # Cookie 验证
+│   ├── manager.py             # 浏览器管理器 (AsyncCamoufox)
+│   ├── async_navigation.py    # 异步页面导航和保活
+│   └── ws_logger.py           # WebSocket 日志记录
 ├── utils/
 │   ├── cookie_manager.py      # Cookie 来源管理
 │   ├── cookie_handler.py      # Cookie 格式转换
@@ -86,10 +81,12 @@ f:/AIStudioBuildWS/
 
 ## 关键技术决策
 
-### 1. 多进程架构
-- 使用 `multiprocessing` 而非 `threading`
-- 每个 Cookie/账户运行在独立进程中
-- 通过 `multiprocessing.Event` 实现跨进程关闭信号
+### 1. 单进程多上下文架构 (Asyncio)
+- **旧架构**: 多进程 (multiprocessing)，每个账号一个浏览器进程。资源消耗大。
+- **新架构**: 单进程 (asyncio)，使用 `AsyncCamoufox`。
+  - **Single Browser Instance**: 共享浏览器二进制和主进程，大幅降低内存。
+  - **Multiple Contexts**: 使用 `browser.new_context()` 实现账号隔离。
+  - **Async/Await**: 高效处理 I/O 密集型任务 (网络请求、等待)。
 
 ### 2. 反检测浏览器
 - 使用 Camoufox（基于 Firefox 的反检测浏览器）
@@ -101,51 +98,32 @@ f:/AIStudioBuildWS/
 - 自动格式检测和转换
 
 ### 4. 部署模式
-- **独立模式**：直接运行 `python main.py`
-- **服务器模式**：`HG=true` 时启动 Flask，提供健康检查端点
+- **独立模式**：直接运行 `python main.py`，启动 asyncio loop。
+- **服务器模式**：`HG=true` 时启动 Flask，在后台守护线程中运行 asyncio loop。
 
 ## 组件关系
 
 ```mermaid
 graph TD
-    A[main.py] --> B[ProcessManager]
-    A --> C[CookieManager]
-    A --> D[Flask Server]
+    A[main.py] --> B[BrowserManager]
+    A --> C[Flask Server]
     
-    B --> E[run_browser_instance]
-    C --> E
+    B --> D[AsyncCamoufox Browser]
     
-    E --> F[Camoufox Browser]
-    E --> G[CookieValidator]
-    E --> H[Navigation Handler]
-    E --> J[WebSocket Logger]
+    D --> E[Context 1]
+    D --> F[Context 2]
     
-    F --> I[Google AI Studio]
-    G --> I
-    H --> I
+    E --> G[Async Navigation]
+    F --> G
+    
+    E --> H[WebSocket Logger]
+    F --> H
+    
+    G --> I[Google AI Studio]
 ```
 
 ## 设计模式
 
-1. **工厂模式**：`CookieManager.load_cookies()` 根据来源类型创建不同的加载策略
-2. **观察者模式**：`shutdown_event` 用于通知所有子进程优雅关闭
-3. **单例模式**：`process_manager` 作为全局进程管理器
-
-## 关键实现路径
-
-### 启动流程
-1. `main()` → 注册信号处理器
-2. `run_standalone_mode()` / `run_server_mode()`
-3. `start_browser_instances()` → 加载配置
-4. `multiprocessing.Process(target=run_browser_instance)` → 启动子进程
-
-### Cookie 加载流程
-1. `CookieManager.detect_all_sources()` → 扫描文件和环境变量
-2. `CookieManager.load_cookies()` → 从指定来源加载
-3. `auto_convert_to_playwright()` → 转换为 Playwright 格式
-
-### 保活流程
-1. `handle_successful_navigation()` → 进入保活循环
-2. 每 10 秒点击页面
-3. 每 360 次点击（1 小时）执行 Cookie 验证
-4. 检测到关闭信号时优雅退出
+1. **单例模式**：`BrowserManager` 在应用中仅存在一个实例。
+2. **异步任务模式**：每个 Browser Context 作为一个独立的 `asyncio.Task` 运行。
+3. **工厂模式**：`CookieManager` 负责加载和转换 Cookie。

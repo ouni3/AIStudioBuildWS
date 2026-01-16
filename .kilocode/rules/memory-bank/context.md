@@ -4,6 +4,14 @@
 项目处于稳定维护阶段。为了响应用户需求，**已禁用自动 Cookie 验证机制**，确保浏览器实例能够长期运行而不因网络波动或验证逻辑过于严格而意外退出。
 
 ## 最近变更
+- **重构**: 从多进程架构迁移到单进程异步架构 (Asyncio)。（当前）
+  - **原因**: 降低资源消耗（内存/CPU），解决多浏览器实例资源占用过高问题。
+  - **实现**: 
+    - 引入 `BrowserManager` 管理单 `AsyncCamoufox` 实例和多 `Context`。
+    - 替换 `multiprocessing` 为 `asyncio.Task`。
+    - 导航逻辑异步化 (`browser/async_navigation.py`)。
+  - **Keywords**: `AsyncCamoufox`, `asyncio`, `BrowserManager`, `Single Process`
+
 - **修改**: 禁用了浏览器实例中的定期 Cookie 验证功能。（2026-01-06）
   - **原因**: 用户反馈容器运行一小时后会自动退出，经排查是由于严格的 Cookie 验证逻辑（每小时一次）在网络波动或超时情况下导致实例关闭。
   - **实现**: 

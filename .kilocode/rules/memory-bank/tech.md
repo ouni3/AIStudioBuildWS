@@ -6,7 +6,7 @@
 - **Python 3.11** - 主要开发语言
 
 ### 浏览器自动化
-- **Camoufox 0.4.11** - 反检测浏览器（基于 Firefox）
+- **Camoufox 0.4.11** - 反检测浏览器（基于 Firefox），使用 Async API
 - **Playwright 1.52.0** - 浏览器自动化框架
 
 ### Web 框架
@@ -88,10 +88,10 @@ docker compose down
 __Secure-1PSID=...; __Secure-1PAPISID=...; ...
 ```
 
-### 进程管理
-- 使用 `multiprocessing.Process` 创建子进程
-- 通过 `multiprocessing.Event` 实现跨进程信号
-- 支持 SIGTERM/SIGINT 优雅关闭
+### 进程/任务管理
+- **架构**: 单进程多协程 (Asyncio)
+- **管理器**: `BrowserManager` (Singleton)
+- **并发**: 使用 `asyncio.Task` 运行多个独立的 BrowserContext
 
 ## 依赖说明
 
