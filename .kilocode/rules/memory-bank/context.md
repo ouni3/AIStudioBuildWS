@@ -32,6 +32,14 @@
 - 验证新架构在长期运行（>24小时）下的稳定性，特别是 WebSocket 连接是否会因未知的浏览器行为而断开。
 - 确认为期 24 小时的稳定性测试通过。
 
+### Cookie 验证结果 (2026-02-04)
+- **Abstract**: 使用 Playwright (Firefox) 验证了 `.env` 中所有 8 个 `USER_COOKIE_N` 环境变量，并使用 MCP Puppeteer 重点交叉验证了 COOKIE_6 和 COOKIE_8。结果显示所有 Cookie 均有效，成功导航至 AI Studio 目标页面且未触发登录重定向。
+- **Keywords**: `Cookie Verification`, `Playwright`, `USER_COOKIE_1-8`, `MCP Puppeteer`, `Success`
+
+### 增强：WebSocket 业务日志 (2026-02-04)
+- **Abstract**: 增强了 `WebSocketLogger`，支持从加密的 WebSocket 流量中启发式提取模型名称 (如 `gemini-1.5-flash`) 和响应状态。现在日志能清晰显示哪个 Cookie 实例正在处理特定的 AI 请求。
+- **Keywords**: `Heuristic Extraction`, `Model ID`, `WebSocketLogger`, `Business Visibility`
+
 ## 已知问题
 - **Windows Docker 网络限制**: `network_mode: host` 在 Windows 上的行为特殊，目前仅用于解决 localhost 访问问题。
 - **单点故障风险**: 由于共享浏览器实例，若浏览器进程崩溃，所有账号将同时掉线（目前通过 Docker 重启策略缓解）。
