@@ -12,3 +12,4 @@ services:
       - ./cookies:/app/cookies:rw
       - ./logs:/app/logs:rw
     restart: on-failure
+#docker compose -f docker-compose.async.yml up
