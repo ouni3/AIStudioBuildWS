@@ -68,9 +68,47 @@ def load_instance_configurations(logger):
 
     return global_settings, instances
 
+async def monitor_auto_restart(logger, shutdown_event):
+    """监控自动重启计时器"""
+    auto_restart_hours = os.getenv("AUTO_RESTART_HOURS")
+    if not auto_restart_hours:
+        return
+
+    try:
+        hours = float(auto_restart_hours)
+        if hours <= 0:
+            return
+        
+        seconds = hours * 3600
+        logger.info(f"自动重启已开启: 将在 {hours} 小时后 ({int(seconds)} 秒) 自动退出进程以触发重启")
+        
+        # 使用 wait_for 或循环检查 shutdown_event
+        # 考虑到 asyncio.sleep 是可取消的，我们在这里等待
+        start_time = time.time()
+        while not shutdown_event.is_set():
+            elapsed = time.time() - start_time
+            if elapsed >= seconds:
+                logger.info(f"已达到自动重启时间 ({hours} 小时)，正在触发关闭...")
+                shutdown_event.set()
+                break
+            await asyncio.sleep(60) # 每分钟检查一次
+    except ValueError:
+        logger.error(f"无效的 AUTO_RESTART_HOURS 值: {auto_restart_hours}")
+
+async def start_app_async(logger, global_settings, instance_profiles, shutdown_event):
+    """异步启动应用及其监控协程"""
+    global browser_manager
+    browser_manager = BrowserManager(global_settings, instance_profiles, shutdown_event)
+    
+    # 同时运行浏览器管理器和重启监控
+    await asyncio.gather(
+        browser_manager.run(),
+        monitor_auto_restart(logger, shutdown_event)
+    )
+
 def run_async_manager():
     """在 asyncio 事件循环中运行 BrowserManager"""
-    global browser_manager, shutdown_event
+    global shutdown_event
     
     logger = setup_logging(str(logs_dir() / 'app.log'))
     
@@ -86,11 +124,9 @@ def run_async_manager():
         logger.error("无有效配置，退出")
         return
 
-    browser_manager = BrowserManager(global_settings, instance_profiles, shutdown_event)
-    
     # 运行异步主循环
     try:
-        asyncio.run(browser_manager.run())
+        asyncio.run(start_app_async(logger, global_settings, instance_profiles, shutdown_event))
     except KeyboardInterrupt:
         # 通常由 signal_handler 处理，这里只是为了防止 Traceback
         pass
