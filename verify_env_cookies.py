@@ -60,6 +60,38 @@ async def check_cookie(name, cookie_str):
                 'mat-drawer-container'
             ]
             
+            # 尝试获取账户名 (通常在头像或下拉菜单中)
+            account_name = "Unknown"
+            try:
+                # 注入脚本查找包含邮箱的文本
+                account_name = await page.evaluate("""() => {
+                    const treeWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                    let node;
+                    while (node = treeWalker.nextNode()) {
+                        const text = node.textContent.trim();
+                        // 包含邮箱正则匹配
+                        const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/);
+                        if (match) return match[0];
+                    }
+                    // 尝试从 aria-label 中提取
+                    const googleAccountBtn = document.querySelector('button[aria-label*="Google Account"]');
+                    if (googleAccountBtn) {
+                        const label = googleAccountBtn.getAttribute('aria-label');
+                        const match = label.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/);
+                        if (match) return match[0];
+                        return label;
+                    }
+                    // 检查页面上是否有任何文本包含 @gmail.com
+                    const bodyText = document.body.innerText;
+                    const match = bodyText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/);
+                    if (match) return match[0];
+                    
+                    return "Unknown";
+                }""")
+            except Exception as e:
+                # print(f"提取账户名出错: {str(e)}")
+                pass
+
             found = False
             for s in selectors:
                 try:
@@ -72,7 +104,7 @@ async def check_cookie(name, cookie_str):
             
             if found:
                 # 进一步验证：检查是否能加载出特定的 API Key 或 Project 信息 (可选)
-                print(f"✅ {name}: 有效 (识别到 UI 组件)")
+                print(f"✅ {name}: 有效 (识别到 UI 组件) | 账户: {account_name}")
                 return True
             else:
                 print(f"❌ {name}: 界面加载异常 (可能账号已失效或网络问题)")
@@ -86,6 +118,9 @@ async def check_cookie(name, cookie_str):
 
 async def main():
     load_dotenv()
+    
+    cookie_vars = [k for k in os.environ.keys() if k.startswith("USER_COOKIE_")]
+    cookie_vars.sort(key=lambda x: int(x.split("_")[-1]) if x.split("_")[-1].isdigit() else 0)
     
     cookie_vars = [k for k in os.environ.keys() if k.startswith("USER_COOKIE_")]
     cookie_vars.sort(key=lambda x: int(x.split("_")[-1]) if x.split("_")[-1].isdigit() else 0)
