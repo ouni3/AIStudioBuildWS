@@ -1,18 +1,16 @@
 # Active Context - Code (Nono)
 
 ## Current Task
-Update `docker-compose.yml` to support a 3-shard cluster.
+Fix Spinner positioning conflict and redirection auth escape in `browser/manager.py`.
 
 ## Implementation Details
-- Replaced `aistudio-websocket-app` with `aistudio-shard-0`, `aistudio-shard-1`, and `aistudio-shard-2`.
-- Applied naming convention for `container_name`.
-- Injected `SHARD_INDEX` (0/1/2) and `SHARD_COUNT` (3) for each service.
-- Isolated log volumes to `./logs/shard_N:/app/logs:rw`.
-- Maintained shared cookies volume.
-- Set `restart: on-failure` and ensured no redundant networks.
+- Replaced strict-mode `mat-spinner` locator with `.all()` iterator logic to safely wait for all spinners to hide.
+- Injected `[Iori's Redirection Audit]` after navigation response check to intercept unintended redirects (Google login/signin) and terminate invalid contexts.
+- Verified syntax with `py_compile`.
 
 ## Status
-- `docker-compose.yml` updated: [x]
+- `browser/manager.py` updated: [x]
+- Compile check passed: [x]
 - Memory bank updated: [x]
 
-💰 [TASK_COST]: $0.05
+💰 [TASK_COST]: $0.02

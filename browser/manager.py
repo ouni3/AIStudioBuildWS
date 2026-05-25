@@ -185,12 +185,22 @@ class BrowserManager:
                                  await page.screenshot(path=os.path.join(screenshot_dir, f"WARN_status_{response.status}_{diagnostic_tag}.png"), timeout=10000)
                              except: pass
                     
+                    # [Iori's Redirection Audit] 鉴权前置防线：探测到非预期的域或路由重定向，直接斩杀
+                    current_url = page.url
+                    if "accounts.google.com" in current_url or "login" in current_url.lower() or "signin" in current_url.lower():
+                        logger.error(f"严重越权: 检测到未预期的重定向页面 ({current_url})，判定 Cookie 失效，斩杀上下文。")
+                        try:
+                            await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_redirect_{diagnostic_tag}.png"), timeout=10000)
+                        except: pass
+                        return
+
                     # 检查加载指示器
-                    spinner_locator = page.locator('mat-spinner')
                     try:
-                        # 等待 spinner 消失
-                        await spinner_locator.wait_for(state='hidden', timeout=30000)
-                        logger.info("加载指示器已消失")
+                        # [Iori's Strict-Mode Bypass] 规避严格模式：获取所有现存的 spinner 并等待其全部隐藏
+                        spinners = await page.locator('mat-spinner').all()
+                        for spinner in spinners:
+                            await spinner.wait_for(state='hidden', timeout=30000)
+                        logger.info("所有加载指示器已消失")
                     except TimeoutError:
                         logger.error("页面加载卡在 Spinner。")
                         try:
