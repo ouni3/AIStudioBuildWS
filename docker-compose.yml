@@ -1,12 +1,45 @@
 services:
-  aistudio-websocket-app:
+  aistudio-shard-0:
     image: aistudio-websocket
     build: .
     pull_policy: never
-    container_name: aistudio-websocket-app
+    container_name: aistudio-shard-0
     env_file:
       - .env
+    environment:
+      - SHARD_INDEX=0
+      - SHARD_COUNT=3
     volumes:
       - ./cookies:/app/cookies:rw
-      - ./logs:/app/logs:rw
+      - ./logs/shard_0:/app/logs:rw
+    restart: on-failure
+
+  aistudio-shard-1:
+    image: aistudio-websocket
+    build: .
+    pull_policy: never
+    container_name: aistudio-shard-1
+    env_file:
+      - .env
+    environment:
+      - SHARD_INDEX=1
+      - SHARD_COUNT=3
+    volumes:
+      - ./cookies:/app/cookies:rw
+      - ./logs/shard_1:/app/logs:rw
+    restart: on-failure
+
+  aistudio-shard-2:
+    image: aistudio-websocket
+    build: .
+    pull_policy: never
+    container_name: aistudio-shard-2
+    env_file:
+      - .env
+    environment:
+      - SHARD_INDEX=2
+      - SHARD_COUNT=3
+    volumes:
+      - ./cookies:/app/cookies:rw
+      - ./logs/shard_2:/app/logs:rw
     restart: on-failure

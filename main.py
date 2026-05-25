@@ -47,7 +47,7 @@ def load_instance_configurations(logger):
         logger.error("错误: 未找到任何Cookie来源（既没有JSON文件，也没有环境变量Cookie）")
         return None, None
 
-    # 4. 为每个Cookie来源创建实例配置
+    # 4. 为每个 Cookie 来源创建实例配置
     instances = []
     for source in sources:
         if source.type == "file":
@@ -64,7 +64,17 @@ def load_instance_configurations(logger):
                 "cookie_source": source
             })
 
-    logger.info(f"将启动 {len(instances)} 个浏览器上下文")
+    # 5. 分片 (Sharding) 逻辑
+    shard_index = int(os.getenv("SHARD_INDEX", "0"))
+    shard_count = int(os.getenv("SHARD_COUNT", "1"))
+    
+    total_count = len(instances)
+    if shard_count > 1:
+        # 根据索引取模过滤
+        instances = [inst for idx, inst in enumerate(instances) if idx % shard_count == shard_index]
+        logger.info(f"Shard {shard_index + 1}/{shard_count} allocated {len(instances)} accounts (Total: {total_count})")
+    else:
+        logger.info(f"启动全部 {len(instances)} 个浏览器上下文")
 
     return global_settings, instances
 
