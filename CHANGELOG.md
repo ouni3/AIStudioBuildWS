@@ -1,5 +1,12 @@
 # Changelog - AIStudioBuildWS
 
+## [v1.0.1-p5] - 2026-05-25
+
+### Maintenance
+- Phase EP-05 settlement — ops-analyst activeContext update
+
+---
+
 ## [v1.0.1-p4] - 2026-05-25
 
 ### Added

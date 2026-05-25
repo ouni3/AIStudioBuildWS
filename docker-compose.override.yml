@@ -1,9 +1,23 @@
+x-shard-proxy-base: &shard-proxy-base
+  networks:
+    - my-shared-bridge
+  # 使用 exec 确保 python 拿到 PID 1 以正确响应 Docker 停止信号
+  # 使用后台 while 循环确保 socat 即使意外中断也能自我拉起 (Zero-Touch Auto Heal)
+  command: >
+    sh -c "
+    (while true; do socat TCP-LISTEN:8317,fork,reuseaddr TCP:moe-cli-proxy-dr:8317; sleep 1; done) & 
+    exec python main.py
+    "
+
 services:
   aistudio-shard-0:
-    networks:
-      - my-shared-bridge
-    command: >
-      sh -c "socat TCP-LISTEN:8317,fork,reuseaddr TCP:cli-proxy-api:8317 & python main.py"
+    <<: *shard-proxy-base
+
+  aistudio-shard-1:
+    <<: *shard-proxy-base
+
+  aistudio-shard-2:
+    <<: *shard-proxy-base
 
 networks:
   my-shared-bridge:
