@@ -1,5 +1,12 @@
 # Changelog - AIStudioBuildWS
 
+## [v1.0.1-p6] - 2026-05-25
+
+### Maintenance
+- chore(settlement): auto commit updates for Phase 6 mat-spinner and redirect fixes
+
+---
+
 ## [v1.0.1-p5] - 2026-05-25
 
 ### Maintenance
