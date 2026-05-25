@@ -16,9 +16,6 @@ services:
   aistudio-shard-1:
     <<: *shard-proxy-base
 
-  aistudio-shard-2:
-    <<: *shard-proxy-base
-
 networks:
   my-shared-bridge:
     external: true

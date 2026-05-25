@@ -8,7 +8,7 @@ services:
       - .env
     environment:
       - SHARD_INDEX=0
-      - SHARD_COUNT=3
+      - SHARD_COUNT=2
     volumes:
       - ./cookies:/app/cookies:rw
       - ./logs/shard_0:/app/logs:rw
@@ -23,23 +23,8 @@ services:
       - .env
     environment:
       - SHARD_INDEX=1
-      - SHARD_COUNT=3
+      - SHARD_COUNT=2
     volumes:
       - ./cookies:/app/cookies:rw
       - ./logs/shard_1:/app/logs:rw
-    restart: on-failure
-
-  aistudio-shard-2:
-    image: aistudio-websocket
-    build: .
-    pull_policy: never
-    container_name: aistudio-shard-2
-    env_file:
-      - .env
-    environment:
-      - SHARD_INDEX=2
-      - SHARD_COUNT=3
-    volumes:
-      - ./cookies:/app/cookies:rw
-      - ./logs/shard_2:/app/logs:rw
     restart: on-failure
