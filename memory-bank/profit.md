@@ -5,7 +5,7 @@
 |:---|:---|
 | 项目 | AIStudioBuildWS |
 | 初始化 Phase | EP-01 (v1.0.1-p4) |
-| 当前 Phase | EP-06 (v1.0.1-p6) |
+| 当前 Phase | EP-07 (v1.0.1-p7) |
 | 初始化日期 | 2026-05-25 |
 | 算力总管 | 沙耶 (ops-analyst) |
 
@@ -18,8 +18,9 @@
 | EP-01 | 2026-05-25 | $0.05 | N/A | $0.05 | Cookie 验证 + 3-shard docker-compose |
 | EP-05 | 2026-05-25 | $0.05 | N/A | $0.05 | EP-05 settlement — ops-analyst 账本同步 |
 | EP-06 | 2026-05-25 | $0.07 | N/A | $0.07 | EP-06 settlement — mat-spinner + redirect fixes |
+| EP-07 | 2026-05-25 | $0.07 | N/A | $0.07 | EP-07 settlement — double-f compose deployment fixes |
 
-**累计成本**: $0.17
+**累计成本**: $0.24
 
 ---
 
@@ -30,6 +31,7 @@
 | EP-01 | 暂无高频信号 | 暂无 | — |
 | EP-05 | 暂无高频信号 | 暂无 | — |
 | EP-06 | 暂无高频信号 | 暂无 | — |
+| EP-07 | 暂无高频信号 | 暂无 | — |
 
 ---
 
@@ -46,6 +48,7 @@
 | EP-01 | [SETTLED] | $0.05 | 2026-05-25 |
 | EP-05 | [SETTLED] | $0.10 | 2026-05-25 |
 | EP-06 | [SETTLED] | $0.17 | 2026-05-25 |
+| EP-07 | [SETTLED] | $0.24 | 2026-05-25 |
 
 ---
 
