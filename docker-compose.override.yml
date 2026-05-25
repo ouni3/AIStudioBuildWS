@@ -1,5 +1,5 @@
 services:
-  aistudio-websocket-app:
+  aistudio-shard-0:
     networks:
       - my-shared-bridge
     command: >
