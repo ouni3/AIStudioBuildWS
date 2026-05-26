@@ -6,7 +6,6 @@ WebSocket 日志记录模块
 
 import json
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from utils.paths import logs_dir, ws_log_flag_path
@@ -96,17 +95,7 @@ class WebSocketLogger:
 
             # 输出到控制台（精简版）
             summary = self._extract_summary(data, is_json)
-            
-            # 业务逻辑分析：识别模型和状态
-            analysis = self._analyze_payload(data) if is_json else {'is_relevant': False}
-            
-            if analysis['is_relevant']:
-                action_verb = "发送请求" if direction == 'SENT' else "收到响应"
-                status_str = f" (状态: {analysis['status']})" if analysis['status'] else ""
-                msg = f"{self.instance_label} {action_verb} [{analysis['model']}]需求{status_str}"
-                self.logger.info(f"✨ {msg}")
-            else:
-                self.logger.info(f"[WS {arrow}] {summary}")
+            self.logger.info(f"[WS {arrow}] {summary}")
 
             # 保存完整消息到文件
             self._save_to_file(direction, ws_url, timestamp, data, is_json)
@@ -114,80 +103,6 @@ class WebSocketLogger:
         except UnicodeDecodeError:
             # 二进制数据
             self.logger.debug(f"[WS {arrow}] 二进制数据 ({len(payload)} bytes)")
-
-    def _analyze_payload(self, data):
-        """
-        启发式分析 Payload，提取模型和状态信息
-        
-        :param data: 解析后的 JSON 数据 (dict 或 list)
-        :return: 包含分析结果的字典
-        """
-        result = {
-            'is_relevant': False,
-            'model': 'unknown',
-            'status': None
-        }
-
-        if not isinstance(data, (dict, list)):
-            return result
-
-        # 查找模型名称 (递归查找包含 gemini- 的字符串)
-        model = self._find_value_by_pattern(data, re.compile(r'gemini-[\w.-]+'))
-        if model:
-            result['is_relevant'] = True
-            result['model'] = model
-            
-            # 识别状态
-            if isinstance(data, dict):
-                # 常见状态字段
-                for status_key in ['status', 'code', 'finishReason', 'error']:
-                    if status_key in data:
-                        result['status'] = data[status_key]
-                        break
-                
-                # 特殊场景：如果包含内容，默认 200 或 "OK"
-                if not result['status']:
-                    if 'serverContent' in data or 'text' in data or 'candidates' in data:
-                        result['status'] = "200"
-        
-        return result
-
-    def _find_value_by_pattern(self, data, pattern, max_depth=3):
-        """递归在嵌套结构中查找匹配正则的值"""
-        if max_depth <= 0:
-            return None
-            
-        if isinstance(data, str):
-            if pattern.search(data):
-                return data
-            return None
-            
-        if isinstance(data, dict):
-            # 优先检查常见字段名 (包括键名匹配模式的情况，例如某些 API 将模型名作为键)
-            for k, v in data.items():
-                if pattern.search(k) and isinstance(v, (dict, list)):
-                    return k
-            
-            for k in ['model', 'model_id', 'modelName', 'publisherModelName']:
-                if k in data and isinstance(data[k], str):
-                    if pattern.search(data[k]):
-                        return data[k]
-            
-            # 递归遍历所有值
-            for v in data.values():
-                res = self._find_value_by_pattern(v, pattern, max_depth - 1)
-                if res: return res
-                
-        if isinstance(data, list):
-            for item in data:
-                res = self._find_value_by_pattern(item, pattern, max_depth - 1)
-                if res: return res
-        
-        # 兼容一些包含 gemini- 字符串但不是在 model 字段的情况
-        if isinstance(data, str) and pattern.search(data):
-            return data
-                
-        return None
 
     def _extract_summary(self, data, is_json):
         """
