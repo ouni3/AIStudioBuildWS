@@ -24,6 +24,9 @@ class BrowserManager:
         self.logger = setup_logging(str(logs_dir() / 'manager.log'), prefix="Manager")
         self.browser = None
         self.tasks = []
+        # 初始化并发导航信号量
+        max_concurrent = int(self.global_settings.get('max_concurrent_navigations', 3))
+        self.navigation_semaphore = asyncio.Semaphore(max_concurrent)
 
     def get_total_count(self):
         """获取配置的总实例数"""
@@ -79,8 +82,8 @@ class BrowserManager:
                     config = self.global_settings.copy()
                     config.update(profile)
                     
-                    # 错峰启动：每个上下文之间间隔 15 秒，避免单实例浏览器瞬间压力过大
-                    start_delay = (i - 1) * 15
+                    # 错峰启动：每个任务提交间隔 1s，实际导航受信号量控制
+                    start_delay = i * 1.0
                     task = asyncio.create_task(self.delayed_run_context(config, i, start_delay))
                     self.tasks.append(task)
                 
@@ -88,7 +91,7 @@ class BrowserManager:
                     self.logger.warning("没有需要运行的任务")
                     return
 
-                self.logger.info(f"已提交 {len(self.tasks)} 个错峰并发上下文任务 (间隔 15s)")
+                self.logger.info(f"已提交 {len(self.tasks)} 个并发上下文任务 (由 Semaphore 控制)")
 
                 # 主循环：监控 shutdown_event
                 while not self.shutdown_event.is_set():
@@ -138,7 +141,16 @@ class BrowserManager:
         screenshot_dir = logs_dir()
         ensure_dir(screenshot_dir)
 
-        logger.info(f"Context #{index} 初始化中...")
+        # 使用信号量限制同时进行的导航/初始化数量
+        logger.info(f"Context #{index} 等待进入导航门控 (Semaphore)...")
+        async with self.navigation_semaphore:
+            logger.info(f"Context #{index} 已进入导航门控，开始初始化...")
+            return await self._run_context_logic(config, index, logger, diagnostic_tag, screenshot_dir)
+
+    async def _run_context_logic(self, config, index, logger, diagnostic_tag, screenshot_dir):
+        """实际运行逻辑"""
+        cookie_source = config.get('cookie_source')
+        instance_label = cookie_source.display_name
         
         # 加载 Cookie
         try:
@@ -162,6 +174,18 @@ class BrowserManager:
             try:
                 await context.add_cookies(cookies)
                 page = await context.new_page()
+
+                # 资源拦截：阻断图片、媒体、字体等高负载资源
+                if config.get('block_resources', True):
+                    async def intercept_route(route):
+                        resource_type = route.request.resource_type
+                        if resource_type in ["image", "media", "font"]:
+                            await route.abort()
+                        else:
+                            await route.continue_()
+                    
+                    await page.route("**/*", intercept_route)
+                    logger.info("资源拦截器已激活 (Image/Media/Font)")
                 
                 # 显式将页面带到前台，某些重负载应用在后台上下文可能会限流
                 await page.bring_to_front()
@@ -174,23 +198,34 @@ class BrowserManager:
                 logger.info(f"正在导航到: {mask_url_for_logging(expected_url)}")
                 
                 try:
-                    # 增加导航超时时间到 120s
-                    response = await page.goto(expected_url, wait_until='domcontentloaded', timeout=120000)
-                    
+                    # 增加导航指数退避重试 (Max 3 retries)
+                    max_retries = 3
+                    for retry in range(max_retries):
+                        try:
+                            logger.info(f"正在尝试导航 (第 {retry+1}/{max_retries} 次)...")
+                            response = await page.goto(expected_url, wait_until='domcontentloaded', timeout=120000)
+                            break
+                        except Exception as e:
+                            if retry == max_retries - 1:
+                                raise e
+                            wait_time = (retry + 1) * 5
+                            logger.warning(f"导航失败: {e}。{wait_time}秒后重试...")
+                            await asyncio.sleep(wait_time)
+
                     if response:
                          if not response.ok:
-                             logger.warning(f"HTTP 状态码: {response.status}")
+                             logger.warning(f\"HTTP 状态码: {response.status}\")
                              # 截图增加超时限制，防止截图本身也挂起
                              try:
-                                 await page.screenshot(path=os.path.join(screenshot_dir, f"WARN_status_{response.status}_{diagnostic_tag}.png"), timeout=10000)
+                                 await page.screenshot(path=os.path.join(screenshot_dir, f\"WARN_status_{response.status}_{diagnostic_tag}.png\"), timeout=10000)
                              except: pass
                     
                     # [Iori's Redirection Audit] 鉴权前置防线：探测到非预期的域或路由重定向，直接斩杀
                     current_url = page.url
-                    if "accounts.google.com" in current_url or "login" in current_url.lower() or "signin" in current_url.lower():
-                        logger.error(f"严重越权: 检测到未预期的重定向页面 ({current_url})，判定 Cookie 失效，斩杀上下文。")
+                    if \"accounts.google.com\" in current_url or \"login\" in current_url.lower() or \"signin\" in current_url.lower():
+                        logger.error(f\"严重越权: 检测到未预期的重定向页面 ({current_url})，判定 Cookie 失效，斩杀上下文。\")
                         try:
-                            await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_redirect_{diagnostic_tag}.png"), timeout=10000)
+                            await page.screenshot(path=os.path.join(screenshot_dir, f\"FAIL_redirect_{diagnostic_tag}.png\"), timeout=10000)
                         except: pass
                         return
 
@@ -200,8 +235,9 @@ class BrowserManager:
                         spinners = await page.locator('mat-spinner').all()
                         for spinner in spinners:
                             await spinner.wait_for(state='hidden', timeout=30000)
-                        logger.info("所有加载指示器已消失")
+                        logger.info(\"所有加载指示器已消失\")
                     except TimeoutError:
+
                         logger.error("页面加载卡在 Spinner。")
                         try:
                             await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_spinner_{diagnostic_tag}.png"), timeout=10000)

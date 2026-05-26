@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 from playwright.async_api import Page, expect, TimeoutError
 from utils.paths import logs_dir
 from utils.common import ensure_dir
@@ -31,32 +32,40 @@ async def handle_successful_navigation(page: Page, logger, cookie_file_config, s
     在成功导航到目标页面后，执行后续操作（处理弹窗、保持运行）。
     """
     logger.info("已成功到达目标页面")
-    await page.click('body') # 给予页面焦点
+    
+    # 给予页面焦点 (轻量级)
+    await page.evaluate("() => { window.focus(); document.body.focus(); }")
 
     # 检查并处理 "Last modified by..." 的弹窗
     await handle_untrusted_dialog(page, logger=logger)
 
-    logger.info("实例将保持运行状态。每10秒点击一次页面以保持活动")
+    # 随机抖动启动保活，避免所有实例同时触发
+    jitter = random.uniform(0, 15)
+    logger.info(f"实例进入保活阶段。随机抖动 {jitter:.2f}s 后开始循环...")
+    await asyncio.sleep(jitter)
 
-    # 等待页面加载和渲染
-    await asyncio.sleep(15)
+    logger.info("保活循环已启动。每 30 秒执行一次轻量级 JS 活动模拟")
 
     consecutive_errors = 0  # 连续错误计数器
 
     while True:
         # 检查是否收到关闭信号
-        # asyncio.Event 使用 is_set()，不需要 await
         if shutdown_event and shutdown_event.is_set():
             logger.info("收到关闭信号，正在优雅退出保持活动循环...")
             break
 
         try:
-            # 使用较短的超时时间进行保活点击，避免长时间阻塞
-            await page.click('body', timeout=10000)
+            # 放弃昂贵的 page.click，改用轻量级 JS 事件触发
+            # 模拟鼠标移动和按键按下以维持 WebSocket 和 session 活跃
+            await page.evaluate("""() => {
+                document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }));
+            }""")
             consecutive_errors = 0  # 重置连续错误计数
 
             # 使用可中断的睡眠，每秒检查一次关闭信号
-            for _ in range(10):  # 10秒 = 10次1秒检查
+            # 增加保活间隔到 30 秒以显著降低 CPU 负载
+            for _ in range(30):
                 if shutdown_event and shutdown_event.is_set():
                     logger.info("收到关闭信号，正在优雅退出保持活动循环...")
                     return
