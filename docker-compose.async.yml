@@ -5,11 +5,16 @@ services:
       context: .
       dockerfile: Dockerfile.async
     container_name: aistudio-websocket-async
-    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     volumes:
       - ./cookies:/app/cookies:rw
       - ./logs:/app/logs:rw
     restart: on-failure
+    environment:
+      - HTTP_PROXY=http://host.docker.internal:7897
+      - HTTPS_PROXY=http://host.docker.internal:7897
+      - CAMOUFOX_PROXY=http://host.docker.internal:7897
 #docker compose -f docker-compose.async.yml up

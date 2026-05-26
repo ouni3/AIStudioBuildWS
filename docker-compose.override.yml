@@ -1,21 +1,16 @@
-x-shard-proxy-base: &shard-proxy-base
-  networks:
-    - my-shared-bridge
-  # 使用 exec 确保 python 拿到 PID 1 以正确响应 Docker 停止信号
-  # 使用后台 while 循环确保 socat 即使意外中断也能自我拉起 (Zero-Touch Auto Heal)
-  command: >
-    sh -c "
-    (while true; do socat TCP-LISTEN:8317,fork,reuseaddr TCP:moe-cli-proxy-dr:8317; sleep 1; done) & 
-    exec python main.py
-    "
+x-shard-base: &shard-base
+  # 使用 Docker 默认网桥网络，通过 extra_hosts 解析宿主机
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  command: python main.py
+  environment:
+    - HTTP_PROXY=http://host.docker.internal:7897
+    - HTTPS_PROXY=http://host.docker.internal:7897
+    - CAMOUFOX_PROXY=http://host.docker.internal:7897
 
 services:
   aistudio-shard-0:
-    <<: *shard-proxy-base
+    <<: *shard-base
 
   aistudio-shard-1:
-    <<: *shard-proxy-base
-
-networks:
-  my-shared-bridge:
-    external: true
+    <<: *shard-base
