@@ -21,10 +21,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 下载 camoufox (注入代理 + 重试机制应对 GitHub API 速率限制)
-ENV HTTP_PROXY=http://192.168.0.104:7897
-ENV HTTPS_PROXY=http://192.168.0.104:7897
-ENV all_proxy=http://192.168.0.104:7897
-RUN for i in 1 2 3; do camoufox fetch && break || sleep 30; done
+RUN export HTTP_PROXY=http://192.168.0.104:7897 \
+    && export HTTPS_PROXY=http://192.168.0.104:7897 \
+    && export all_proxy=http://192.168.0.104:7897 \
+    && for i in 1 2 3; do camoufox fetch && break || sleep 30; done
 
 # 将项目中的所有文件拷贝到工作目录
 COPY . .
