@@ -214,18 +214,18 @@ class BrowserManager:
 
                     if response:
                          if not response.ok:
-                             logger.warning(f\"HTTP 状态码: {response.status}\")
+                             logger.warning(f"HTTP 状态码: {response.status}")
                              # 截图增加超时限制，防止截图本身也挂起
                              try:
-                                 await page.screenshot(path=os.path.join(screenshot_dir, f\"WARN_status_{response.status}_{diagnostic_tag}.png\"), timeout=10000)
+                                 await page.screenshot(path=os.path.join(screenshot_dir, f"WARN_status_{response.status}_{diagnostic_tag}.png"), timeout=10000)
                              except: pass
                     
                     # [Iori's Redirection Audit] 鉴权前置防线：探测到非预期的域或路由重定向，直接斩杀
                     current_url = page.url
-                    if \"accounts.google.com\" in current_url or \"login\" in current_url.lower() or \"signin\" in current_url.lower():
-                        logger.error(f\"严重越权: 检测到未预期的重定向页面 ({current_url})，判定 Cookie 失效，斩杀上下文。\")
+                    if "accounts.google.com" in current_url or "login" in current_url.lower() or "signin" in current_url.lower():
+                        logger.error(f"严重越权: 检测到未预期的重定向页面 ({current_url})，判定 Cookie 失效，斩杀上下文。")
                         try:
-                            await page.screenshot(path=os.path.join(screenshot_dir, f\"FAIL_redirect_{diagnostic_tag}.png\"), timeout=10000)
+                            await page.screenshot(path=os.path.join(screenshot_dir, f"FAIL_redirect_{diagnostic_tag}.png"), timeout=10000)
                         except: pass
                         return
 
@@ -235,7 +235,7 @@ class BrowserManager:
                         spinners = await page.locator('mat-spinner').all()
                         for spinner in spinners:
                             await spinner.wait_for(state='hidden', timeout=30000)
-                        logger.info(\"所有加载指示器已消失\")
+                        logger.info("所有加载指示器已消失")
                     except TimeoutError:
 
                         logger.error("页面加载卡在 Spinner。")

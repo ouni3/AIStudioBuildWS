@@ -1,25 +1,15 @@
-x-shard-base: &shard-base
-  # 双轨拓扑: 浏览器公网流量→Clash(7897)，WS内部流量→socat→moe-cli-proxy-api(8317)
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
-  command: python main.py
-  environment:
-    # 浏览器公网代理 (访问 ai.studio 等外网)
-    - HTTP_PROXY=http://host.docker.internal:7897
-    - HTTPS_PROXY=http://host.docker.internal:7897
-    - CAMOUFOX_PROXY=http://host.docker.internal:7897
-    # 关键: 127.0.0.1 的 WebSocket 流量不经过代理，由 socat 直接转发到 cli-proxy-api
-    - NO_PROXY=127.0.0.1,localhost,host.docker.internal,moe-cli-proxy-api
-  networks:
-    - moe-infrastructure-network
-
 services:
   aistudio-shard-0:
-    <<: *shard-base
+    image: aistudio-websocket:async
+    environment:
+      - HG=true
+      - NO_PROXY=localhost,127.0.0.1,::1,cliproxy-dr,moe-cli-proxy-dr,moe-cli-proxy-api,host.docker.internal,172.21.32.1
+    networks:
+      moe-infrastructure-network:
+        aliases:
+          - aistudio-shard
+          - cliproxy-backend
 
   aistudio-shard-1:
-    <<: *shard-base
-
-networks:
-  moe-infrastructure-network:
-    external: true
+    deploy:
+      replicas: 0

@@ -23,6 +23,8 @@ playwright==1.52.0
 propcache==0.3.2
 pyee==13.0.0
 PySocks==1.7.1
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
 requests==2.32.4
 screeninfo==0.8.1
 tqdm==4.67.1

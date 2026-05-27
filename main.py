@@ -4,6 +4,7 @@ import signal
 import sys
 import time
 import asyncio
+from dotenv import load_dotenv
 
 from browser.manager import BrowserManager
 from utils.logger import setup_logging
@@ -331,6 +332,9 @@ def signal_handler(signum, frame):
     
 def main():
     """主入口函数"""
+    # Load environment variables from /app/.env if present (mounted via docker-compose)
+    load_dotenv("/app/.env", override=True)
+
     ensure_dir(logs_dir())
     ensure_dir(cookies_dir())
 

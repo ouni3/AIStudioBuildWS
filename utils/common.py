@@ -8,7 +8,7 @@ from pathlib import Path
 
 def clean_env_value(value):
     """
-    清理环境变量值，去除首尾空白字符
+    清理环境变量值，去除首尾空白字符和匹配的首尾引号（单引号或双引号）
 
     Args:
         value: 环境变量的原始值
@@ -19,6 +19,10 @@ def clean_env_value(value):
     if value is None:
         return None
     stripped = value.strip()
+    # 剥离匹配的首尾引号（支持单引号和双引号）
+    if len(stripped) >= 2:
+        if (stripped[0] == '"' and stripped[-1] == '"') or (stripped[0] == "'" and stripped[-1] == "'"):
+            stripped = stripped[1:-1]
     return stripped or None
 
 

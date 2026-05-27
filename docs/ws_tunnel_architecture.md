@@ -1,4 +1,3 @@
-# System Patterns 
 # WebSocket Tunnel Architecture & Bypass Strategy
 
 ## 1. Browser Worker / API Gateway Decoupling Model

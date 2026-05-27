@@ -3,6 +3,7 @@ import json
 import asyncio
 from playwright.async_api import async_playwright
 from utils.cookie_manager import CookieManager
+from utils.common import clean_env_value
 from utils.logger import setup_logging
 
 async def verify_cookies():
@@ -50,7 +51,7 @@ async def verify_cookies():
             
             try:
                 # 访问 AI Studio
-                url = os.getenv("CAMOUFOX_INSTANCE_URL", "https://aistudio.google.com/")
+                url = clean_env_value(os.getenv("CAMOUFOX_INSTANCE_URL")) or "https://aistudio.google.com/"
                 logger.info(f"正在导航到 {url}...")
                 
                 # 设置超时

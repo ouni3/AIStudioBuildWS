@@ -1,5 +1,17 @@
 # Changelog - AIStudioBuildWS
 
+## [v1.0.1-p8] - 2026-05-27
+
+### Added
+- feat(arch): implement decoupled API Gateway and Browser Worker architecture
+- feat(security): implement socat transparent forwarding to bypass HTTPS Mixed Content restrictions
+- feat(testing): implement Layer 2 E2E integration test architecture with Playwright
+
+### Changed
+- refactor: update productContext.md with independent architecture declaration and connectivity checklist
+- chore(settlement): auto commit phase updates for EP-08
+
+---
 ## [v1.0.1-p6] - 2026-05-25
 
 ### Maintenance

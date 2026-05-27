@@ -1,30 +1,46 @@
 services:
   aistudio-shard-0:
     image: aistudio-websocket
-    build: .
-    pull_policy: never
     container_name: aistudio-shard-0
-    env_file:
-      - .env
+    # env_file removed - Docker Compose has issues parsing single-quoted long strings
+    # Cookie files are provided via cookies/ volume mount instead
     environment:
       - SHARD_INDEX=0
       - SHARD_COUNT=2
+      - PROXY_URL=${PROXY_URL}
+      - NO_PROXY=${NO_PROXY}
+      - CAMOUFOX_INSTANCE_URL=https://ai.studio/apps/7ffe3a50-71de-4116-8c87-69ce06290d30
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./cookies:/app/cookies:rw
       - ./logs/shard_0:/app/logs:rw
+    command: ["/bin/sh", "-c", "camoufox fetch 2>/dev/null || true && socat TCP-LISTEN:8317,fork,reuseaddr TCP:moe-cli-proxy-dr:8317 & python main.py"]
+    networks:
+      - moe-infrastructure-network
     restart: on-failure
 
   aistudio-shard-1:
     image: aistudio-websocket
-    build: .
-    pull_policy: never
     container_name: aistudio-shard-1
-    env_file:
-      - .env
+    # env_file removed - Docker Compose has issues parsing single-quoted long strings
+    # Cookie files are provided via cookies/ volume mount instead
     environment:
       - SHARD_INDEX=1
       - SHARD_COUNT=2
+      - PROXY_URL=${PROXY_URL}
+      - NO_PROXY=${NO_PROXY}
+      - CAMOUFOX_INSTANCE_URL=https://ai.studio/apps/7ffe3a50-71de-4116-8c87-69ce06290d30
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./cookies:/app/cookies:rw
       - ./logs/shard_1:/app/logs:rw
+    command: ["/bin/sh", "-c", "camoufox fetch 2>/dev/null || true && socat TCP-LISTEN:8317,fork,reuseaddr TCP:moe-cli-proxy-dr:8317 & python main.py"]
+    networks:
+      - moe-infrastructure-network
     restart: on-failure
+
+networks:
+  moe-infrastructure-network:
+    external: true

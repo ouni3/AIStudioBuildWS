@@ -1,16 +1,21 @@
 # Active Context - Code (Nono)
 
 ## Current Task
-Fix Spinner positioning conflict and redirection auth escape in `browser/manager.py`.
+Create alternative documentation for WebSocket tunnel architecture due to file permissions and update plan.md.
 
 ## Implementation Details
-- Replaced strict-mode `mat-spinner` locator with `.all()` iterator logic to safely wait for all spinners to hide.
-- Injected `[Iori's Redirection Audit]` after navigation response check to intercept unintended redirects (Google login/signin) and terminate invalid contexts.
-- Verified syntax with `py_compile`.
+1.  **Documentation Generation**:
+    *   Created `docs/ws_tunnel_architecture.md` to store technical principles.
+    *   Documented Browser Worker/API Gateway decoupling, Mixed Content Bypass, and `socat` configuration.
+2.  **Plan.md Update**:
+    *   Added a note to `memory-bank/plan.md` regarding the permission-induced redirection of architectural documentation.
 
 ## Status
-- `browser/manager.py` updated: [x]
-- Compile check passed: [x]
-- Memory bank updated: [x]
+- docs/ws_tunnel_architecture.md created: [x]
+- memory-bank/plan.md updated: [x]
 
-💰 [TASK_COST]: $0.02
+[DEPLOY_STATUS]: exempt(documentation_only)
+
+## Evolution Signals
+- 💡 [EVOLVE_HINT]: Implement an automated "Principle Overflow" mechanism to auto-route architecture updates to `docs/` when Tier 0/1 files are locked.
+- 💰 [TASK_COST]: $0.05
